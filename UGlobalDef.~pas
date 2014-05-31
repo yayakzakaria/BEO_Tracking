@@ -1,0 +1,27 @@
+unit UGlobalDef;
+
+interface
+
+function FolioStatusText(TxtIn: String): String;
+function NoteStatusText(TxtIn: String): String;
+
+implementation
+
+function FolioStatusText(TxtIn: String): String;
+begin
+  if TxtIn[1] = 'T' then FolioStatusText := 'Tentative'
+  else if TxtIn[1] = 'C' then FolioStatusText := 'Confirm'
+  else if TxtIn[1] = 'I' then FolioStatusText := 'In House'
+  else FolioStatusText := 'UNKNOWN';
+end;
+
+function NoteStatusText(TxtIn: String): String;
+begin
+    if TxtIn[1] = 'A' then NoteStatusText := 'Approved'
+    else if TxtIn[1] = 'R' then NoteStatusText := 'Released'
+    else if TxtIn[1] = 'C' then NoteStatusText := 'Rejected'
+    else if TxtIn[1] = 'O' then NoteStatusText := 'Open'
+    else NoteStatusText := 'UNKNOWN';
+end;
+
+end.

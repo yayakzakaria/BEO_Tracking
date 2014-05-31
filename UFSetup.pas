@@ -1,0 +1,206 @@
+unit UFSetup;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms, 
+  Dialogs, StdCtrls, CheckLst, Grids, DBGrids, IBDatabase, DB,
+  IBCustomDataSet, IBQuery, ComCtrls, DBCtrls, MyStrings, Buttons;
+
+type
+  TFrame2 = class(TFrame)
+    DBGrid1: TDBGrid;
+    CheckListBox1: TCheckListBox;
+    IBDatabase1: TIBDatabase;
+    IBQuery1: TIBQuery;
+    IBTransaction1: TIBTransaction;
+    DataSource1: TDataSource;
+    BitBtn1: TBitBtn;
+    BitBtn2: TBitBtn;
+    BitBtn3: TBitBtn;
+    BitBtn4: TBitBtn;
+    procedure IBQuery1AfterScroll(DataSet: TDataSet);
+    procedure BitBtn1Click(Sender: TObject);
+    procedure BitBtn2Click(Sender: TObject);
+    procedure DBGrid1DblClick(Sender: TObject);
+    procedure BitBtn3Click(Sender: TObject);
+    procedure BitBtn4Click(Sender: TObject);
+  private
+    { Private declarations }
+    procedure CMShowingChanged(var M: TMessage); message CM_SHOWINGCHANGED;
+  public
+    { Public declarations }
+    Username: String;
+    Database, dBTemplate: String;
+  end;
+
+implementation
+
+uses USetupEntry, USetupLog;
+
+{$R *.dfm}
+
+//***** http://stackoverflow.com/questions/1464778/delphi-frames-vs-forms-what-for-multi-document-interface *****//
+procedure TFrame2.CMShowingChanged(var M: TMessage);
+begin
+  inherited;
+  if Showing then
+  begin
+    // .... put your code for onShowing is triggered
+    IBDatabase1.Connected := False;
+    DataSource1.DataSet := nil;
+    IBDatabase1.DatabaseName := dBTemplate;
+    IBQuery1.SQL.Text := 'SELECT userid FROM userid WHERE useractive = 1 AND equivalentuser IS NOT null ORDER BY userid';
+    IBDatabase1.Connected := True;
+    IBQuery1.Open;
+    IBQuery1.First;
+    Form4.ComboBox1.Clear;
+    while not IBQuery1.Eof do
+    begin
+      Form4.ComboBox1.Items.Add(IBQuery1.FieldByName('userid').AsString);
+      IBQuery1.Next;
+    end;
+    IBQuery1.Close;
+    IBDatabase1.Connected := False;
+    IBDatabase1.DatabaseName := Database;
+    IBQuery1.SQL.Text := 'SELECT note_id, name FROM bq_note_id WHERE flag_active = 1 ORDER BY note_id';
+    IBDatabase1.Connected := True;
+    IBQuery1.Open;
+    IBQuery1.First;
+    CheckListBox1.Clear;
+    Form4.CheckListBox1.Clear;
+    while not IBQuery1.Eof do
+    begin
+      CheckListBox1.Items.Add(IBQuery1.FieldByName('note_id').AsString + ' - ' + IBQuery1.FieldByName('name').AsString);
+      Form4.CheckListBox1.Items.Add(IBQuery1.FieldByName('note_id').AsString + ' - ' + IBQuery1.FieldByName('name').AsString);
+      IBQuery1.Next;
+    end;
+    IBQuery1.Close;
+    IBDatabase1.Connected := False;
+    IBQuery1.SQL.Text := 'SELECT user_id, note_id, ' +
+                    'CASE WHEN manager_access = 0 THEN ''No'' WHEN manager_access = -1 THEN ''Yes'' END manager_access, ' +
+                    'CASE WHEN review_access = 0 THEN ''No'' WHEN review_access = -1 THEN ''Yes'' END review_access, ' +
+                    'CASE WHEN admin_access = 0 THEN ''No'' WHEN admin_access = -1 THEN ''Yes'' END admin_access ' +
+                    'FROM fo_mice_cfg ORDER BY user_id';
+    IBDatabase1.Connected := True;
+    IBQuery1.Open;
+    DataSource1.DataSet := IBQuery1;
+  end
+  else
+  begin
+    // .... put your code for onHiding is triggered
+    IBDatabase1.Close;
+  end;
+end;
+
+procedure TFrame2.IBQuery1AfterScroll(DataSet: TDataSet);
+var
+  List: IStrings;
+  i: Integer;
+begin
+  if Assigned(IBQuery1.FindField('note_id')) then
+  begin
+    List := SplitEx(IBQuery1.FieldByName('note_id').AsString, ',');
+    for i:=0 to CheckListBox1.Items.Count-1 do
+      CheckListBox1.Checked[i] := (List.Obj.IndexOf(SplitEx(CheckListBox1.Items[i], ' - ').Strings[0]) > -1);
+  end;
+end;
+
+procedure TFrame2.BitBtn1Click(Sender: TObject);
+var
+  i: Integer;
+  bookPosition: TBookMark;
+begin
+  Form4.StatusSQL := False;
+  Form4.Caption := 'Add New User:';
+  Form4.ComboBox1.ClearSelection;
+  Form4.ComboBox1.Enabled := True;
+  Form4.CheckBox1.Checked := False;
+  Form4.CheckBox2.Checked := False;
+  Form4.CheckBox3.Checked := False;
+  for i:=0 to Form4.CheckListBox1.Items.Count-1 do
+    Form4.CheckListBox1.Checked[i] := False;
+  Form4.Database := Database;
+  Form4.Username := Username;
+  if Form4.ShowModal = mrOK then
+  begin
+    bookPosition := IBQuery1.GetBookmark;
+    IBQuery1.DisableControls;
+    IBDatabase1.Close;
+    IBDatabase1.Open;
+    IBQuery1.Open;
+    IBQuery1.GotoBookmark(bookPosition);
+    IBQuery1.EnableControls;
+    IBQuery1.FreeBookmark(bookPosition);
+  end;
+end;
+
+procedure TFrame2.BitBtn2Click(Sender: TObject);
+var
+  List: IStrings;
+  i: Integer;
+  bookPosition: TBookMark;
+begin
+  Form4.StatusSQL := True;
+  Form4.Caption := 'Edit User: ' + IBQuery1.FieldByName('user_id').AsString;
+  Form4.ComboBox1.ItemIndex := Form4.ComboBox1.Items.IndexOf(IBQuery1.FieldByName('user_id').AsString);
+  Form4.ComboBox1.Enabled := False;
+  Form4.CheckBox1.Checked := CompareStr(IBQuery1.FieldByName('review_access').AsString, 'Yes') = 0;
+  Form4.CheckBox2.Checked := CompareStr(IBQuery1.FieldByName('admin_access').AsString, 'Yes') = 0;
+  Form4.CheckBox3.Checked := CompareStr(IBQuery1.FieldByName('manager_access').AsString, 'Yes') = 0;
+  List := SplitEx(IBQuery1.FieldByName('note_id').AsString, ',');
+  for i:=0 to Form4.CheckListBox1.Items.Count-1 do
+    Form4.CheckListBox1.Checked[i] := (List.Obj.IndexOf(SplitEx(Form4.CheckListBox1.Items[i], ' - ').Strings[0]) > -1);
+  Form4.Database := Database;
+  Form4.Username := Username;
+  if Form4.ShowModal = mrOK then
+  begin
+    bookPosition := IBQuery1.GetBookmark;
+    IBQuery1.DisableControls;
+    IBDatabase1.Close;
+    IBDatabase1.Open;
+    IBQuery1.Open;
+    IBQuery1.GotoBookmark(bookPosition);
+    IBQuery1.EnableControls;
+    IBQuery1.FreeBookmark(bookPosition);
+  end;
+end;
+
+procedure TFrame2.DBGrid1DblClick(Sender: TObject);
+begin
+  BitBtn2.Click;
+end;
+
+procedure TFrame2.BitBtn3Click(Sender: TObject);
+begin
+  if (MessageDlg('Are you sure?'#13'You will delete user [' + IBQuery1.FieldByName('user_id').AsString + '].', mtConfirmation, [mbOK, mbCancel], 0) <> mrOK) then Exit;
+  Form4.IBDatabase1.DatabaseName := Database;
+  Form4.IBDatabase1.Close;
+  Form4.IBQuery1.SQL.Text := 'UPDATE fo_mice_cfg SET edituser = ''' + Username + ''' WHERE user_id = ''' + IBQuery1.FieldByName('user_id').AsString + '''';
+  //Form4.IBQuery1.SQL.Text := 'UPDATE fo_mice_cfg SET edituser = ''' + Username + ''' WHERE user_id = ''' + IBQuery1.FieldByName('user_id').AsString + ''';'#13#10'COMMIT;'#13#10 +
+  //                           'DELETE FROM fo_mice_cfg WHERE user_id = ''' + IBQuery1.FieldByName('user_id').AsString + ''';'#13#10'COMMIT;'#13#10;
+  //ShowMessage(Form4.IBQuery1.SQL.Text);
+  Form4.IBDatabase1.Open;
+  Form4.IBQuery1.ExecSQL;
+  Form4.IBDatabase1.Close;
+  Form4.IBQuery1.SQL.Text := 'DELETE FROM fo_mice_cfg WHERE user_id = ''' + IBQuery1.FieldByName('user_id').AsString + '''';
+  Form4.IBDatabase1.Open;
+  Form4.IBQuery1.ExecSQL;
+  Form4.IBDatabase1.Close;
+  IBDatabase1.Close;
+  IBDatabase1.Open;
+  IBQuery1.Open;
+end;
+
+procedure TFrame2.BitBtn4Click(Sender: TObject);
+begin
+  //MessageDlg('Sorry first.'#13'Still underconstruction :-)', mtWarning, [mbOK], 0);
+  Form5.IBDatabase1.Close;
+  Form5.IBDatabase1.DatabaseName := Database;
+  Form5.IBQuery1.SQL.Text := 'SELECT * FROM fo_mice_cfg_log WHERE userid = ''' + IBQuery1.FieldByName('user_id').AsString + ''' ORDER BY log_id DESC';
+  Form5.IBDatabase1.Open;
+  Form5.IBQuery1.Open;
+  Form5.ShowModal;
+end;
+
+end.

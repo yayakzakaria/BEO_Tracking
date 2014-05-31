@@ -1,0 +1,132 @@
+unit UNote;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, Grids, DBGrids, DB, IBDatabase, IBCustomDataSet, IBQuery,
+  StdCtrls, ComCtrls, DBCtrls, Buttons, IBUpdateSQL, ExtCtrls;
+
+type
+  TForm2 = class(TForm)
+    GroupBox1: TGroupBox;
+    GroupBox2: TGroupBox;
+    IBQuery1: TIBQuery;
+    IBTransaction1: TIBTransaction;
+    DataSource1: TDataSource;
+    DBGrid1: TDBGrid;
+    DBRichEdit1: TDBRichEdit;
+    DBRichEdit2: TDBRichEdit;
+    IBDatabase1: TIBDatabase;
+    Label1: TLabel;
+    Label2: TLabel;
+    Label3: TLabel;
+    Label4: TLabel;
+    BitBtn1: TBitBtn;
+    BitBtn2: TBitBtn;
+    RichEdit1: TRichEdit;
+    IBQuery1FOLIO: TIntegerField;
+    IBQuery1NOTE_ID: TSmallintField;
+    IBQuery1NOTE: TBlobField;
+    IBQuery1STATUS_REASON: TBlobField;
+    IBQuery1DATE_APPR: TDateTimeField;
+    IBQuery1LAST_EDITDATE: TDateTimeField;
+    IBQuery1LAST_EDITUSER: TIBStringField;
+    IBQuery1STATUS_APPR: TIBStringField;
+    LabeledEdit1: TLabeledEdit;
+    LabeledEdit2: TLabeledEdit;
+    LabeledEdit3: TLabeledEdit;
+    LabeledEdit4: TLabeledEdit;
+    LabeledEdit5: TLabeledEdit;
+    RichEdit2: TRichEdit;
+    LabeledEdit6: TLabeledEdit;
+    procedure IBQuery1STATUS_APPRGetText(Sender: TField; var Text: String;
+      DisplayText: Boolean);
+    procedure BitBtn1Click(Sender: TObject);
+    procedure BitBtn2Click(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+    Username, NoteID: String;
+    FolioNo: Integer;
+    Database: String;
+    ReviewOnly: Boolean;
+    procedure Refresh;
+  end;
+
+var
+  Form2: TForm2;
+
+implementation
+
+uses UGlobalDef;
+
+{$R *.dfm}
+
+procedure TForm2.IBQuery1STATUS_APPRGetText(Sender: TField;
+  var Text: String; DisplayText: Boolean);
+begin
+  Text := NoteStatusText(Sender.AsString);
+end;
+
+procedure TForm2.Refresh;
+begin
+  IBDatabase1.Connected := False;
+  IBDatabase1.DatabaseName := Database;
+  IBQuery1.SQL.Text := 'SELECT * FROM FO_MICE_NOTE WHERE folio = ' + IntToStr(FolioNo) + ' AND note_id = ' + NoteID + ' ORDER BY last_editdate';
+  IBDatabase1.Connected := True;
+  IBQuery1.Open;
+  IBQuery1.Last;
+  RichEdit1.SelText := IBQuery1STATUS_REASON.AsString;
+  RichEdit2.SelText := IBQuery1NOTE.AsString;
+end;
+
+procedure TForm2.BitBtn1Click(Sender: TObject);
+begin
+  //if CompareText(LabeledEdit6.Text, 'Released') = 0 then Exit;
+  IBDatabase1.Connected := False;
+  IBDatabase1.DatabaseName := Database;
+  IBQuery1.SQL.Text := 'INSERT INTO fo_mice_note (folio, note_id, note, status_appr, status_reason, date_appr, last_editdate, last_edituser) ' +
+            'SELECT folio, note_id, note, ''R'', ''' + StringReplace(RichEdit1.Text, '''', '''''', [rfReplaceAll]) + ''', ''Now'', ''Now'', ''' + Username + ''' FROM fo_mice_note ' +
+            'WHERE folio = ' + IntToStr(FolioNo) + ' AND note_id = ' + NoteID + ' AND last_editdate = (SELECT max(last_editdate) FROM fo_mice_note WHERE folio = ' + IntToStr(FolioNo) + ' AND note_id = ' + NoteID + ')';
+  IBDatabase1.Connected := True;
+  IBQuery1.ExecSQL;
+  IBDatabase1.Connected := False;
+  ModalResult := mrYes;
+end;
+
+procedure TForm2.BitBtn2Click(Sender: TObject);
+begin
+  //if CompareText(LabeledEdit6.Text, 'Rejected') = 0 then Exit;
+  IBDatabase1.Connected := False;
+  IBDatabase1.DatabaseName := Database;
+  IBQuery1.SQL.Text := 'INSERT INTO fo_mice_note (folio, note_id, note, status_appr, status_reason, date_appr, last_editdate, last_edituser) ' +
+            'SELECT folio, note_id, note, ''C'', ''' + StringReplace(RichEdit1.Text, '''', '''''', [rfReplaceAll]) + ''', ''Now'', ''Now'', ''' + Username + ''' FROM fo_mice_note ' +
+            'WHERE folio = ' + IntToStr(FolioNo) + ' AND note_id = ' + NoteID + ' AND last_editdate = (SELECT max(last_editdate) FROM fo_mice_note WHERE folio = ' + IntToStr(FolioNo) + ' AND note_id = ' + NoteID + ')';
+  IBDatabase1.Connected := True;
+  IBQuery1.ExecSQL;
+  IBDatabase1.Connected := False;
+  ModalResult := mrNo;
+end;
+
+procedure TForm2.FormShow(Sender: TObject);
+begin
+  BitBtn1.Enabled := (not ReviewOnly) and (CompareStr(LabeledEdit6.Text, 'Approved') = 0);
+  BitBtn2.Enabled := (not ReviewOnly) and (CompareStr(LabeledEdit6.Text, 'Approved') = 0);
+  RichEdit1.ReadOnly := (ReviewOnly) or (CompareStr(LabeledEdit6.Text, 'Approved') <> 0);
+  if RichEdit1.ReadOnly then RichEdit1.Color := clSkyBlue
+  else begin
+    RichEdit1.Color := clWindow;
+    RichEdit1.Clear;
+  end;
+end;
+
+procedure TForm2.FormClose(Sender: TObject; var Action: TCloseAction);
+begin
+  IBDatabase1.Close;
+end;
+
+end.

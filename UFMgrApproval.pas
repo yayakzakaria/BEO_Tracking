@@ -1,0 +1,134 @@
+unit UFMgrApproval;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms, 
+  Dialogs, DB, IBDatabase, IBCustomDataSet, IBQuery, Grids, DBGrids;
+
+type
+  TFrame3 = class(TFrame)
+    DBGrid1: TDBGrid;
+    IBDatabase1: TIBDatabase;
+    IBQuery1: TIBQuery;
+    IBTransaction1: TIBTransaction;
+    DataSource1: TDataSource;
+    IBQuery1FNAME: TIBStringField;
+    IBQuery1FOLIOSTATUS: TIBStringField;
+    IBQuery1FOLIO: TIntegerField;
+    IBQuery1DATECI: TDateTimeField;
+    IBQuery1DATECO: TDateTimeField;
+    IBQuery1STATUS_APPR: TIBStringField;
+    procedure IBQuery1FOLIOSTATUSGetText(Sender: TField; var Text: String;
+      DisplayText: Boolean);
+    procedure IBQuery1STATUS_APPRGetText(Sender: TField; var Text: String;
+      DisplayText: Boolean);
+    procedure DBGrid1DrawColumnCell(Sender: TObject; const Rect: TRect;
+      DataCol: Integer; Column: TColumn; State: TGridDrawState);
+    procedure DBGrid1DblClick(Sender: TObject);
+  private
+    { Private declarations }
+    procedure CMShowingChanged(var M: TMessage); message CM_SHOWINGCHANGED;
+  public
+    { Public declarations }
+    Username: String;
+    Database: String;
+    procedure RefreshTable;
+  end;
+
+implementation
+
+uses UGlobalDef, UMgrApproval;
+
+{$R *.dfm}
+
+procedure TFrame3.IBQuery1FOLIOSTATUSGetText(Sender: TField;
+  var Text: String; DisplayText: Boolean);
+begin
+  if IBQuery1.RecordCount > 0 then
+    Text := FolioStatusText(Sender.AsString);
+end;
+
+procedure TFrame3.IBQuery1STATUS_APPRGetText(Sender: TField;
+  var Text: String; DisplayText: Boolean);
+begin
+  if IBQuery1.RecordCount > 0 then
+    Text := NoteStatusText(Sender.AsString);
+end;
+
+procedure TFrame3.RefreshTable;
+var
+  bookPosition: TBookMark;
+begin
+  bookPosition := IBQuery1.GetBookmark;
+  IBQuery1.DisableControls;
+  IBDatabase1.Close;
+  //IBQuery1.SQL.Text := tSQL + Sort;
+  IBDatabase1.Open;
+  IBQuery1.Open;
+  IBQuery1.GotoBookmark(bookPosition);
+  IBQuery1.EnableControls;
+  IBQuery1.FreeBookmark(bookPosition);
+end;
+
+procedure TFrame3.DBGrid1DblClick(Sender: TObject);
+begin
+  if IBQuery1.RecordCount > 0 then
+  begin
+    Form6.Database := Database;
+    Form6.Username := Username;
+    Form6.LabeledEdit1.Text := IBQuery1DATECI.AsString;
+    Form6.LabeledEdit2.Text := IBQuery1DATECO.AsString;
+    Form6.LabeledEdit3.Text := FolioStatusText(IBQuery1FOLIOSTATUS.AsString);
+    Form6.LabeledEdit4.Text := IBQuery1FNAME.AsString;
+    Form6.LabeledEdit5.Text := IBQuery1FOLIO.AsString;
+    Form6.LabeledEdit6.Text := NoteStatusText(IBQuery1STATUS_APPR.AsString);
+    Form6.DisplayNote(IBQuery1FOLIO.AsInteger, IBQuery1STATUS_APPR.AsString);
+    if Form6.ShowModal = mrYes then RefreshTable;
+  end;
+end;
+
+//***** http://stackoverflow.com/questions/1464778/delphi-frames-vs-forms-what-for-multi-document-interface *****//
+procedure TFrame3.CMShowingChanged(var M: TMessage);
+begin
+  inherited;
+  if Showing then
+  begin
+    // .... put your code for onShowing is triggered
+    IBDatabase1.Close;
+    IBDatabase1.DatabaseName := Database;
+    IBQuery1.SQL.Text := 'SELECT DISTINCT b.fname, b.foliostatus, a.folio, b.dateci, b.dateco, a.status_appr ' +
+          'FROM FO_MICE_NOTE0 a LEFT JOIN FOGUEST b ON b.folio = a.folio ' +
+          'WHERE a.status_appr IS NOT null AND b.foliostatus IN (''T'', ''C'', ''I'')';
+    IBDatabase1.Open;
+    IBQuery1.Open;
+  end
+  else
+  begin
+    // .... put your code for onHiding is triggered
+    IBDatabase1.Close;
+  end;
+end;
+
+procedure TFrame3.DBGrid1DrawColumnCell(Sender: TObject; const Rect: TRect;
+  DataCol: Integer; Column: TColumn; State: TGridDrawState);
+begin
+  if not (gdSelected in State) then begin
+  if IBQuery1.FieldByName('Status_Appr').AsString[1] = 'O' then begin
+    DBGrid1.Canvas.Font.Color := RGB(255, 85, 13);
+    DBGrid1.Canvas.Brush.Color := RGB(255, 227, 215);
+  end else if IBQuery1.FieldByName('Status_Appr').AsString[1] = 'A' then begin
+    DBGrid1.Canvas.Font.Color := RGB(0, 94, 81);
+    DBGrid1.Canvas.Brush.Color := RGB(206, 255, 255);
+  end else if IBQuery1.FieldByName('Status_Appr').AsString[1] = 'R' then begin
+    DBGrid1.Canvas.Font.Color := RGB(0, 0, 0);
+    DBGrid1.Canvas.Brush.Color := RGB(226, 226, 226);
+  end else if IBQuery1.FieldByName('Status_Appr').AsString[1] = 'C' then begin
+    DBGrid1.Canvas.Font.Color := RGB(128, 0, 128);
+    DBGrid1.Canvas.Brush.Color := RGB(235, 221, 238);
+  end;
+  DBGrid1.DefaultDrawColumnCell(Rect, DataCol, Column, State);
+  end;
+end;
+
+end.

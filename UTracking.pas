@@ -1,0 +1,140 @@
+unit UTracking;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, Grids, Menus, ComCtrls, IBDatabase, DB, IBCustomDataSet, IBQuery,
+  DBGrids, UFTracking, UFSetup, jpeg, ExtCtrls, UFMgrApproval;
+
+type
+  TForm1 = class(TForm)
+    StatusBar1: TStatusBar;
+    MainMenu1: TMainMenu;
+    File1: TMenuItem;
+    About1: TMenuItem;
+    Setup1: TMenuItem;
+    ProgramIni1: TMenuItem;
+    BEOTracking1: TMenuItem;
+    N1: TMenuItem;
+    Exit1: TMenuItem;
+    N2: TMenuItem;
+    Login1: TMenuItem;
+    Logout1: TMenuItem;
+    N3: TMenuItem;
+    Frame11: TFrame1;
+    Frame21: TFrame2;
+    Refresh1: TMenuItem;
+    Image1: TImage;
+    ManagerApproval1: TMenuItem;
+    Frame31: TFrame3;
+    procedure Login1Click(Sender: TObject);
+    procedure BEOTracking1Click(Sender: TObject);
+    procedure Exit1Click(Sender: TObject);
+    procedure Logout1Click(Sender: TObject);
+    procedure Setup1Click(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+    procedure Refresh1Click(Sender: TObject);
+    procedure ProgramIni1Click(Sender: TObject);
+    procedure ManagerApproval1Click(Sender: TObject);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+    Username, NoteID: String;
+    Database, dBTemplate: String;
+    ReviewOnly: Boolean;
+  end;
+
+var
+  Form1: TForm1;
+
+implementation
+
+uses ULogin, UNote, UAbout;
+
+{$R *.dfm}
+
+procedure TForm1.Exit1Click(Sender: TObject);
+begin
+  Close;
+end;
+
+procedure TForm1.FormShow(Sender: TObject);
+begin
+  Login1.Click;
+end;
+
+procedure TForm1.Logout1Click(Sender: TObject);
+begin
+  Frame11.Visible := False;
+  Frame21.Visible := False;
+  Frame31.Visible := False;
+  Refresh1.Visible := False;
+  BEOTracking1.Visible := False;
+  Setup1.Visible := False;
+  StatusBar1.Panels[0].Text := '';
+  StatusBar1.Panels[1].Text := '';
+  Username := '';
+  NoteID := '';
+  ReviewOnly := False;
+  Form1.Caption := 'BEO Tracking';
+end;
+
+procedure TForm1.Login1Click(Sender: TObject);
+begin
+  Logout1.Click;
+  Form3.ShowModal;
+end;
+
+procedure TForm1.BEOTracking1Click(Sender: TObject);
+begin
+  Frame11.Username := Username;
+  Frame11.NoteID := NoteID;
+  Frame11.Database := Database;
+
+  Frame11.Visible := True;
+  Frame21.Visible := False;
+  Frame31.Visible := False;
+  Refresh1.Visible := True;
+  Form2.ReviewOnly := ReviewOnly;
+  Form1.Caption := 'BEO Tracking - [HOD Approval]';
+end;
+
+procedure TForm1.ManagerApproval1Click(Sender: TObject);
+begin
+  Frame31.Username := Username;
+  Frame31.Database := Database;
+
+  Frame11.Visible := False;
+  Frame21.Visible := False;
+  Frame31.Visible := True;
+  Refresh1.Visible := True;
+  Form1.Caption := 'BEO Tracking - [Manager Approval]';
+end;
+
+procedure TForm1.Setup1Click(Sender: TObject);
+begin
+  Frame21.Username := Username;
+  Frame21.Database := Database;
+  Frame21.dBTemplate := dBTemplate;
+
+  Frame11.Visible := False;
+  Frame21.Visible := True;
+  Frame31.Visible := False;
+  Refresh1.Visible := False;
+  Form1.Caption := 'BEO Tracking - [Setup Configuration]';
+end;
+
+procedure TForm1.Refresh1Click(Sender: TObject);
+begin
+  if Frame31.Visible then Frame31.RefreshTable
+  else if Frame11.Visible then Frame11.RefreshTable;
+end;
+
+procedure TForm1.ProgramIni1Click(Sender: TObject);
+begin
+  AboutBox.ShowModal;
+end;
+
+end.
